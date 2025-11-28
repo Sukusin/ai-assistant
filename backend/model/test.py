@@ -3,7 +3,7 @@ import urllib.request
 from dotenv import load_dotenv
 from openai import OpenAI
 
-ENV_URL = "https://storage.yandexcloud.net/ycpub/maikeys/.env"
+ENV_URL = "ENV_URL"
 
 if not os.path.exists(".env"):
     print("Скачиваю .env...")
