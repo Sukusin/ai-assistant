@@ -1,32 +1,34 @@
-# # Если ты в Jupyter / Colab — можно так скачать .env:
-# !wget -O .env https://storage.yandexcloud.net/ycpub/maikeys/.env
-
 import os
+import urllib.request
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Загружаем переменные из .env
-load_dotenv()
+ENV_URL = "https://storage.yandexcloud.net/ycpub/maikeys/.env"
 
-# Должны быть переменные folder_id и api_key в .env
-folder_id = "b1gst3c7cskk2big5fqn"
-api_key = "AQVNxQ_-mwN1bNst5oDEaWiRvm5cSFOvq_MzLoIz"
+if not os.path.exists(".env"):
+    print("Скачиваю .env...")
+    urllib.request.urlretrieve(ENV_URL, ".env")
 
-# Модель из Yandex AI Studio
+load_dotenv(".env")
+
+folder_id = os.getenv("folder_id")
+api_key = os.getenv("api_key")
+
+if folder_id is None or api_key is None:
+    raise RuntimeError("Не нашёл folder_id или api_key в .env")
+
 model = f"gpt://{folder_id}/qwen3-235b-a22b-fp8/latest"
 
-# Клиент в режиме совместимости с OpenAI
 client = OpenAI(
     api_key=api_key,
     base_url="https://rest-assistant.api.cloud.yandex.net/v1",
     project=folder_id,
 )
 
-# Запрос через Responses API
 res = client.responses.create(
     model=model,
-    instructions="Ты — полезный ассистент",
-    input="Привет! Чем бы мне заняться?",
+    instructions="Ты — полезный ассистент деловой переписки.",
+    input="Привет! Напиши короткий деловой ответ клиенту, который благодарит нас за хорошую работу.",
 )
 
 print(res.output_text)
