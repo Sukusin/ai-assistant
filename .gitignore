@@ -5,3 +5,5 @@ ENV/
 env/
 .idea/
 .vscode/
+.env
+**/.env
