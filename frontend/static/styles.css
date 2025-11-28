@@ -217,15 +217,24 @@ select {
   cursor: pointer;
 }
 
-.actions-row button:hover {
-  background: #e5e7eb;
+
+.actions-row button:active {
+    transform: scale(0.97);
 }
 
-.actions-row button:disabled {
-  opacity: 0.6;
-  cursor: default;
+.btn-pending {
+    opacity: 0.8;
+    cursor: wait;
 }
 
+.btn-success {
+    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5);
+}
+
+.btn-error {
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.6);
+}
+а
 .app-footer {
   padding: 12px 32px 16px;
   border-top: 1px solid #e5e7eb;

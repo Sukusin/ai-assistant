@@ -16,7 +16,6 @@
     </header>
 
     <main class="app-main">
-        <!-- Входящее письмо -->
         <section class="card">
             <div class="card-header">
                 <h2>Входящее письмо</h2>
@@ -42,7 +41,6 @@
             ></textarea>
         </section>
 
-        <!-- Параметры ответа -->
         <section class="card">
             <h2>Параметры ответа</h2>
             <div class="form-row">
@@ -59,7 +57,8 @@
                     Размер ответа
                     <select id="emailLength">
                         <option value="short">Короткий ответ</option>
-                        <option value="full" selected>Развёрнутый ответ</option>
+                        <option value="medium">Стандартный ответ</option>
+                        <option value="long" selected>Развёрнутый ответ</option>
                     </select>
                 </label>
             </div>
@@ -73,7 +72,6 @@
             </button>
         </section>
 
-        <!-- Сетка: классификация + ответ -->
         <section class="grid">
             <div class="card">
                 <h2>Классификация обращения</h2>
@@ -84,7 +82,7 @@
                 </div>
 
                 <h3>Извлечённая информация</h3>
-                <div id="extractedInfoBlock">
+                <div id="extractedInfoBlock" class="info-block">
                     <div class="placeholder">
                         Ключевые факты будут показаны после анализа письма.
                     </div>

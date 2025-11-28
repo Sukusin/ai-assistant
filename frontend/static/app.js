@@ -45,8 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  function renderExtractedInfo(items) {
-    if (!items || !items.length) {
+  function renderExtractedInfo(items, summary) {
+    const hasItems = items && items.length;
+    const hasSummary = Boolean(summary && summary.trim());
+
+    if (!hasItems && !hasSummary) {
       extractedInfoBlock.innerHTML = `
         <div class="placeholder">
           Ключевые факты будут показаны после анализа письма.
@@ -55,23 +58,38 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const listHtml = items
-      .map(
-        (item) => `
-      <li>
-        <span class="info-label">${item.label}:</span>
-        <span class="info-value"> ${item.value}</span>
-      </li>
-    `
-      )
-      .join("");
+    let summaryHtml = "";
+    if (hasSummary) {
+      summaryHtml = `
+        <div class="summary-block">
+          <div class="summary-text">${summary}</div>
+        </div>
+      `;
+    }
 
-    extractedInfoBlock.innerHTML = `
-      <ul class="info-list">
-        ${listHtml}
-      </ul>
-    `;
+    let listHtml = "";
+    if (hasItems) {
+      const itemsHtml = items
+        .map(
+          (item) => `
+          <li>
+            <span class="info-label">${item.label}:</span>
+            <span class="info-value"> ${item.value}</span>
+          </li>
+        `
+        )
+        .join("");
+
+      listHtml = `
+        <ul class="info-list">
+          ${itemsHtml}
+        </ul>
+      `;
+    }
+
+    extractedInfoBlock.innerHTML = summaryHtml + listHtml;
   }
+
 
   async function sendGenerateRequest(payload) {
     try {
@@ -117,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await sendGenerateRequest(payload);
 
       renderClassification(data.classification);
-      renderExtractedInfo(data.extractedInfo || []);
+      renderExtractedInfo(data.extractedInfo || [], data.summary);
       answerTextEl.value = data.answerText || "";
 
       setStatus("Ответ успешно сгенерирован.", "success");
@@ -129,20 +147,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function handleCopy() {
-    const text = answerTextEl.value.trim();
-    if (!text) {
-      setStatus("Нет текста ответа для копирования.", "error");
-      return;
-    }
+async function handleCopy() {
+  const text = answerTextEl.value.trim();
 
-    try {
-      await navigator.clipboard.writeText(text);
-      setStatus("Ответ скопирован в буфер обмена.", "success");
-    } catch (e) {
-      setStatus("Не удалось скопировать текст. Скопируйте вручную.", "error");
-    }
+  if (!text) {
+    setStatus("Нет текста ответа для копирования.", "error");
+    flashButton(copyBtn, "btn-error");
+    return;
   }
+
+  copyBtn.disabled = true;
+  copyBtn.classList.add("btn-pending");
+
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Ответ скопирован в буфер обмена.", "success");
+    flashButton(copyBtn, "btn-success");
+  } catch (e) {
+    setStatus("Не удалось скопировать текст. Скопируйте вручную.", "error");
+    flashButton(copyBtn, "btn-error");
+  } finally {
+    copyBtn.classList.remove("btn-pending");
+    copyBtn.disabled = false;
+  }
+}
+
+function flashButton(btn, className) {
+  btn.classList.add(className);
+  setTimeout(() => {
+    btn.classList.remove(className);
+  }, 1000);
+}
 
   function handleMockSend() {
     const text = answerTextEl.value.trim();

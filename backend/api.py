@@ -1,4 +1,3 @@
-# ai-assistant/backend/api.py
 from flask import Flask, request, jsonify
 from model.model_logic import process_letter
 import traceback
@@ -12,15 +11,14 @@ def process():
     try:
         data = request.get_json()
         text = data.get("text", "").strip()
-        tone = data.get("tone", "деловой")  # "формальный", "деловой", "дружелюбный"
-        #length = data.get("length", "full")
+        tone = data.get("tone", "деловой")
+        length = data.get("length", "medium")
 
         if not text:
             return jsonify({"error": "Поле 'text' обязательно"}), 400
 
-        result = process_letter(text, tone=tone)
+        result = process_letter(text, tone=tone, answer_length=length)
 
-        # Переводим ключи в camelCase для удобства фронта
         return jsonify({
             "classification": result["category"],
             "extractedInfo": result["info"],
@@ -35,5 +33,5 @@ def process():
 
 
 if __name__ == "__main__":
-    # Запуск: python api.py → http://localhost:5001/process
+    # Запуск: python api.py (открыть http://localhost:5001/process)
     app.run(host="0.0.0.0", port=5001, debug=True)

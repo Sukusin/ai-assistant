@@ -1,4 +1,3 @@
-# backend/model/model_logic.py
 import os
 import re
 import urllib.request
@@ -31,6 +30,23 @@ client = OpenAI(
     project=folder_id,
 )
 
+
+COMPANY_PRIORITY_TABLE: dict[str, dict] = {
+    'ооо "ромашка"': {
+        "base_priority": 7,
+        "segment": "VIP-клиент",
+        "risk_level": "low",
+    },
+    "банк россии": {
+        "base_priority": 9,
+        "segment": "Регулятор",
+        "risk_level": "high",
+    },
+    # если компании нет - base=5
+}
+
+
+
 def preprocess_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
@@ -41,41 +57,90 @@ def preprocess_text(text: str) -> str:
 
 def classify_letter(text: str) -> str:
     text = preprocess_text(text)
-
     if not text:
-        return "Не определено"
+        return "Иное обращение"
 
     lowered = text.lower()
 
-    if any(w in lowered for w in ["претензия", "жалоба", "недовольн", "нарушение"]):
-        return "Жалоба"
-
-    if any(w in lowered for w in ["банк россии", "центральный банк", "указание банка россии"]):
+    if any(kw in lowered for kw in [
+        "банк россии",           
+        "банка россии",          
+        "цб рф",
+        "центральный банк российской федерации",
+        "центрального банка российской федерации",
+        "указание банка россии",
+        "указания банка россии",
+        "указание цб",
+        "указания цб",
+        "формы №",             
+    ]):
         return "Регуляторный запрос"
 
-    if any(w in lowered for w in [
-        "предлагаем сотрудничество",
-        "предлагаем партнёрство",
-        "предлагаем партнерство",
+    if any(kw in lowered for kw in [
+        "жалоба",
+        "претензия",
+        "претензионное письмо",
+        "грубое нарушен",       
+        "нарушение условий договора",
+        "ненадлежащ",          
+        "требуем немедленного",
+        "требуем возврата",
+        "требуем возместить",
+    ]):
+        return "Официальная жалоба или претензия"
+
+    if any(kw in lowered for kw in [
         "партнерство",
         "партнёрство",
+        "стратегического партнёрства",
+        "стратегического партнерства",
+        "предлагаем сотрудничество",
+        "предлагаем установить партнёрство",
+        "предлагаем установить партнерство",
         "коммерческое предложение",
+        "готовы обсудить детали",
+        "совместного запуска цифровой платформы",
+        "партнёрский проект",
     ]):
         return "Партнёрское предложение"
 
-    if any(w in lowered for w in [
-        "просим предоставить",
-        "просим направить",
-        "запрос информации",
-        "просим выслать",
-        "прошу предоставить",
+    if any(kw in lowered for kw in [
+        "на согласование",
+        "просим согласовать",
+        "прошу согласовать",
+        "согласование проведения мероприятия",
+        "направляем на согласование",
     ]):
-        return "Запрос информации"
+        return "Запрос на согласование"
 
-    if any(w in lowered for w in ["благодарим", "спасибо", "благодарность"]):
-        return "Благодарность"
+    if any(kw in lowered for kw in [
+        "просим предоставить",
+        "прошу предоставить",
+        "просим представить",
+        "прошу представить",
+        "просим направить",
+        "прошу направить",
+        "просим выслать",
+        "прошу выслать",
+        "запрос информации",
+        "просим предоставить информацию",
+        "просим предоставить документы",
+        "просим представить информацию",
+        "просим представить документы",
+    ]):
+        return "Запрос информации/документов"
+    
+    if any(kw in lowered for kw in [
+        "сообщаем",
+        "настоящим сообщаем",
+        "уведомляем",
+        "настоящим уведомляем",
+        "информируем",
+        "доводим до вашего сведения",
+    ]):
+        return "Уведомление или информирование"
 
-    return "Общий запрос"
+    return "Иное обращение"
 
 def extract_info(text: str) -> dict:
     info: dict = {}
@@ -99,10 +164,16 @@ def extract_info(text: str) -> dict:
     if contract_match:
         info["document_number"] = contract_match.group(1)
 
-    # очень простое извлечение суммы
+    # очень простое извлечение суммы (например, 100 000 руб.)
     amount_match = re.search(r"(\d[\d\s]{2,})\s*(?:руб\.?|₽)", text.lower())
     if amount_match:
         info["amount"] = amount_match.group(1).strip().replace(" ", "")
+
+    # попытка вытащить компанию-отправителя: ООО/АО/ПАО «...» или "..."
+    company_match = re.search(r"(ООО|АО|ПАО)\s+\"?«?([^»\"]+)\"?»?", text)
+    if company_match:
+        sender_company = f'{company_match.group(1)} "{company_match.group(2).strip()}"'
+        info["sender_company"] = sender_company
 
     return info
 
@@ -118,10 +189,10 @@ def estimate_urgency(text: str) -> str:
         "до конца дня",
     ]
     medium_markers = [
-        "до ",
         "крайний срок",
         "срок исполнения",
         "просим ответить в течение",
+        "до ",
     ]
 
     if any(m in lowered for m in high_markers):
@@ -131,6 +202,78 @@ def estimate_urgency(text: str) -> str:
         return "Средняя срочность"
 
     return "Низкая срочность"
+
+def get_company_profile(sender_company: str | None) -> dict | None:
+    if not sender_company:
+        return None
+    key = sender_company.lower()
+    return COMPANY_PRIORITY_TABLE.get(key)
+
+
+def calculate_priority(
+    category: str,
+    urgency: str,
+    info: dict,
+    sender_company: str | None = None,
+) -> dict:
+    adjustments: list[str] = []
+    company_profile = get_company_profile(sender_company)
+
+    # базовый приоритет
+    if company_profile and "base_priority" in company_profile:
+        base_priority = int(company_profile["base_priority"])
+        adjustments.append(
+            f"Базовый приоритет по компании ({company_profile.get('segment', 'без сегмента')}) = {base_priority}"
+        )
+    else:
+        base_priority = 5  # дефолт
+        adjustments.append("Компания не найдена в таблице, базовый приоритет = 5")
+
+    priority = base_priority
+
+    # корректировка по категории
+    if category == "Жалоба":
+        priority += 2
+        adjustments.append("Категория 'Жалоба' → +2 к приоритету")
+    elif category == "Регуляторный запрос":
+        priority = max(priority, 8)
+        adjustments.append("Категория 'Регуляторный запрос' → приоритет не ниже 8")
+    elif category == "Партнёрское предложение":
+        priority += 1
+        adjustments.append("Категория 'Партнёрское предложение' → +1 к приоритету")
+
+    # корректировка по срочности
+    if urgency == "Высокая срочность":
+        priority += 2
+        adjustments.append("Высокая срочность → +2 к приоритету")
+    elif urgency == "Средняя срочность":
+        priority += 1
+        adjustments.append("Средняя срочность → +1 к приоритету")
+
+    # корректировка по сумме
+    amount_str = info.get("amount")
+    if amount_str:
+        try:
+            amount = int(amount_str)
+            if amount >= 10_000_000:
+                priority += 2
+                adjustments.append("Сумма ≥ 10 000 000 → +2 к приоритету")
+            elif amount >= 1_000_000:
+                priority += 1
+                adjustments.append("Сумма ≥ 1 000 000 → +1 к приоритету")
+        except ValueError:
+            pass
+
+    # ограничиваем диапазон 0-9
+    priority = max(0, min(9, priority))
+
+    return {
+        "base_priority": base_priority,
+        "final_priority": priority,
+        "adjustments": adjustments,
+        "sender_company": sender_company,
+        "company_profile": company_profile,
+    }
 
 def summarize_letter(text: str, max_sentences: int = 2) -> str:
     text = preprocess_text(text)
@@ -157,11 +300,19 @@ def summarize_letter(text: str, max_sentences: int = 2) -> str:
     except Exception as e:
         return f"Не удалось сформировать краткое резюме письма ({e})."
 
+
+ANSWER_LENGTH_PRESETS = {
+    "short":  "Ответ не более 3–4 предложений.",
+    "medium": "Ответ не более 6–8 предложений.",
+    "long":   "Ответ не более 12–15 предложений.",
+}
+
 def build_prompt(
     original_text: str,
     category: str | None,
     info: dict | None,
     tone: str | None = None,
+    answer_length: str | None = None,
 ) -> str:
     info_lines = []
     if info:
@@ -169,42 +320,71 @@ def build_prompt(
             info_lines.append(f"- {k}: {v}")
     info_block = "\n".join(info_lines) if info_lines else "нет дополнительных данных"
 
-    if tone == "мягкий":
-        tone_instruction = "Сохраняй вежливый, но более мягкий и дружелюбный тон."
-    elif tone == "строгий":
-        tone_instruction = "Тон более формальный и строгий, без лишних эмоций."
-    else:
-        tone_instruction = "Используй стандартный официальный деловой тон."
+    # Тон
+    if tone == "Официальный строгий":
+        tone_instruction = (
+            "Используй максимально официальный и строгий тон: "
+            "деловой стиль, опора на нормы и формулировки документов, "
+            "минимум эмоций и разговорных оборотов."
+        )
+    elif tone == "Корпоративный-деловой":
+        tone_instruction = (
+            "Пиши в корпоративном деловом стиле: вежливо, профессионально, "
+            "структурированно и по делу, без излишней эмоциональности."
+        )
+    elif tone == "Клиентоориентированный":
+        tone_instruction = (
+            "Сохраняй вежливый и клиентоориентированный тон: подчёркивай внимание к "
+            "клиенту, проявляй эмпатию, предлагай помощь и варианты решения, "
+            "избегай резких формулировок."
+        )
+
+    # Длина ответа
+    if answer_length is None:
+        answer_length = "medium"  # значение по умолчанию
+
+    length_instruction = ANSWER_LENGTH_PRESETS.get(
+        answer_length,
+        ANSWER_LENGTH_PRESETS["medium"],
+    )
 
     return f"""
-Ты - ассистент деловой переписки крупного банка. Пиши строго на «Вы», официально-деловым стилем.
+        Ты - ассистент деловой переписки крупного банка. Пиши строго на «Вы», официально-деловым стилем.
 
-Входящее письмо клиента:
-\"\"\"{original_text}\"\"\"
+        Входящее письмо клиента:
+        \"\"\"{original_text}\"\"\"
 
-Категория письма: {category or "не определено"}.
-Извлечённые ключевые факты:
-{info_block}
+        Категория письма: {category or "не определено"}.
+        Извлечённые ключевые факты:
+        {info_block}
 
-{tone_instruction}
+        {tone_instruction}
+        {length_instruction}
 
-Сформируй вежливый, профессиональный ответ от лица банка. 
-Структура:
-- Обращение (если нет имени, используй «Уважаемый клиент»)
-- 1–2 абзаца по сути
-- При необходимости: сроки и дальнейшие шаги
-- Завершение с фразой «С уважением, [название банка]».
+        Сформируй вежливый, профессиональный ответ от лица банка. 
+        Структура:
+        - Обращение (если нет имени, используй «Уважаемый клиент»)
+        - 1–2 абзаца по сути
+        - При необходимости: сроки и дальнейшие шаги
+        - Завершение с фразой «С уважением, ПСБ Банк».
+        """.strip()
 
-Не используй неформальных обращений. Ответ не более 8–10 предложений.
-""".strip()
 
 
 def generate_response(
     text: str,
     category: str | None = None,
     info: dict | None = None,
+    answer_length: str | None = None,
 ) -> str:
-    return generate_response_with_tone(text, category, info, tone=None)
+    # дефолтный тон, но передаём длину
+    return generate_response_with_tone(
+        text=text,
+        category=category,
+        info=info,
+        tone=None,
+        answer_length=answer_length,
+    )
 
 
 def generate_response_with_tone(
@@ -212,8 +392,15 @@ def generate_response_with_tone(
     category: str | None = None,
     info: dict | None = None,
     tone: str | None = None,
+    answer_length: str | None = None,
 ) -> str:
-    prompt = build_prompt(text, category, info, tone=tone)
+    prompt = build_prompt(
+        original_text=text,
+        category=category,
+        info=info,
+        tone=tone,
+        answer_length=answer_length,
+    )
 
     try:
         res = client.responses.create(
@@ -226,14 +413,41 @@ def generate_response_with_tone(
         return f"Не удалось сгенерировать ответ: {e}"
 
 
-def process_letter(text: str, tone: str | None = None) -> dict:
+def process_letter(
+    text: str,
+    tone: str | None = None,
+    sender_company: str | None = None,
+    answer_length: str | None = None,
+) -> dict:
+    """
+    Главный хелпер: принимает текст письма (и, опционально, компанию-отправителя и длину ответа).
+    Возвращает всё, что нужно фронту.
+    """
     cleaned = preprocess_text(text)
     category = classify_letter(cleaned)
     info = extract_info(cleaned)
+
+    # если компанию явно передали в аргументе — считаем, что она приоритетнее парсинга из текста
+    if sender_company:
+        info["sender_company"] = sender_company
+
     urgency = estimate_urgency(cleaned)
     summary = summarize_letter(cleaned)
-    response = generate_response_with_tone(cleaned, category, info, tone=tone)
 
+    priority_info = calculate_priority(
+        category=category,
+        urgency=urgency,
+        info=info,
+        sender_company=info.get("sender_company"),
+    )
+
+    response = generate_response_with_tone(
+        cleaned,
+        category,
+        info,
+        tone=tone,
+        answer_length=answer_length,
+    )
 
     return {
         "category": category,
@@ -241,4 +455,5 @@ def process_letter(text: str, tone: str | None = None) -> dict:
         "urgency": urgency,
         "summary": summary,
         "response": response,
+        "priority": priority_info,
     }

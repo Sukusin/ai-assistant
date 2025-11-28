@@ -49,7 +49,7 @@ if __name__ == "__main__":
     print()
 
     print("=== Тест: process_letter (полный пайплайн) ===")
-    result = process_letter(TEST_TEXT, tone="строгий")
+    result = process_letter(TEST_TEXT, tone="строгий", answer_length='short')
     for k, v in result.items():
         print(f"{k}: {v}")
         print("-" * 40)

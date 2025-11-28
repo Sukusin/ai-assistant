@@ -92,8 +92,9 @@ def try_use_backend(text, style, length):
     if not USE_BACKEND:
         return None
 
-    tone_map = {"formal": "формальный", "business": "деловой", "client": "дружелюбный"}
+    tone_map = {"formal": "Официальный строгий", "business": "Корпоративный-деловой", "client": "Клиентоориентированный"}
     tone = tone_map.get(style, "деловой")
+
 
     try:
         resp = requests.post(
@@ -105,13 +106,18 @@ def try_use_backend(text, style, length):
             data = resp.json()
             if "classification" in data and "response" in data:
                 extracted = data.get("extracted_info", data.get("extractedInfo", []))
+                summary = data.get("summary", "")
+
                 return {
                     "classification": data["classification"],
                     "extractedInfo": extracted,
-                    "answerText": data["response"]
+                    "answerText": data["response"],
+                    "summary": summary,
                 }
-    except:
-        pass  # любая ошибка → fallback
+
+    except Exception as e:
+        print(f"Ошибка обращения к серверу {e}")
+        pass  # любая ошибка -> fallback
 
     return None
 
@@ -126,7 +132,7 @@ def api_generate():
     data = request.get_json() or {}
     incoming_text = data.get("incomingText", "").strip()
     email_style = data.get("emailStyle", "business")
-    email_length = data.get("emailLength", "full")
+    email_length = data.get("emailLength", "short")
 
     if not incoming_text:
         return jsonify({"error": "Пустой текст письма."}), 400
@@ -141,10 +147,18 @@ def api_generate():
     info = extract_info(incoming_text)
     answer = build_answer(incoming_text, email_style, email_length, classification)
 
+    summary = ""
+    for item in info:
+        if item.get("label") == "Краткая суть обращения":
+            summary = item.get("value", "")
+            break
+
     return jsonify({
         "classification": classification,
         "extractedInfo": info,
-        "answerText": answer
+        "answerText": answer,
+        "summary": summary,
+        "emailLength": email_length
     })
 
 
