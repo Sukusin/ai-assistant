@@ -20,8 +20,7 @@ api_key = os.getenv("api_key")
 
 if not folder_id or not api_key:
     raise RuntimeError(
-        "Не найдены переменные окружения 'folder_id' и/или 'api_key'. "
-        "Проверь .env и значения в нём."
+        "Не найдены переменные окружения 'folder_id' или 'api_key'. "
     )
 
 model = f"gpt://{folder_id}/qwen3-235b-a22b-fp8/latest"
@@ -178,7 +177,7 @@ def build_prompt(
         tone_instruction = "Используй стандартный официальный деловой тон."
 
     return f"""
-Ты — ассистент деловой переписки крупного банка. Пиши строго на «Вы», официально-деловым стилем.
+Ты - ассистент деловой переписки крупного банка. Пиши строго на «Вы», официально-деловым стилем.
 
 Входящее письмо клиента:
 \"\"\"{original_text}\"\"\"
@@ -219,7 +218,7 @@ def generate_response_with_tone(
     try:
         res = client.responses.create(
             model=model,
-            instructions="Ты — ассистент деловой переписки банка.",
+            instructions="Ты - ассистент деловой переписки банка.",
             input=prompt,
         )
         return res.output_text.strip()
