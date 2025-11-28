@@ -235,6 +235,7 @@ def process_letter(text: str, tone: str | None = None) -> dict:
     summary = summarize_letter(cleaned)
     response = generate_response_with_tone(cleaned, category, info, tone=tone)
 
+
     return {
         "category": category,
         "info": info,

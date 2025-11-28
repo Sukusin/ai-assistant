@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>AI-ассистент деловой переписки</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<div class="app-root">
+    <header class="app-header">
+        <div class="app-title">AI-ассистент деловой переписки</div>
+        <div class="app-subtitle">
+            Вставьте текст письма — получите готовый черновик ответа
+        </div>
+    </header>
+
+    <main class="app-main">
+        <!-- Входящее письмо -->
+        <section class="card">
+            <div class="card-header">
+                <h2>Входящее письмо</h2>
+                <div class="examples">
+                    <span class="examples-label">Примеры:</span>
+                    <button class="chip" type="button" data-example="complaint">
+                        Жалоба
+                    </button>
+                    <button class="chip" type="button" data-example="regulator">
+                        Регуляторный запрос
+                    </button>
+                    <button class="chip" type="button" data-example="partner">
+                        Партнёрское предложение
+                    </button>
+                </div>
+            </div>
+
+            <textarea
+                id="incomingText"
+                class="textarea"
+                rows="8"
+                placeholder="Вставьте сюда текст входящего письма…"
+            ></textarea>
+        </section>
+
+        <!-- Параметры ответа -->
+        <section class="card">
+            <h2>Параметры ответа</h2>
+            <div class="form-row">
+                <label>
+                    Стиль ответа
+                    <select id="emailStyle">
+                        <option value="formal">Официальный строгий</option>
+                        <option value="business" selected>Корпоративно-деловой</option>
+                        <option value="client">Клиентоориентированный</option>
+                    </select>
+                </label>
+
+                <label>
+                    Размер ответа
+                    <select id="emailLength">
+                        <option value="short">Короткий ответ</option>
+                        <option value="full" selected>Развёрнутый ответ</option>
+                    </select>
+                </label>
+            </div>
+
+            <button
+                id="generateBtn"
+                class="primary-btn"
+                type="button"
+            >
+                Сгенерировать ответ
+            </button>
+        </section>
+
+        <!-- Сетка: классификация + ответ -->
+        <section class="grid">
+            <div class="card">
+                <h2>Классификация обращения</h2>
+                <div id="classificationBlock">
+                    <div class="placeholder">
+                        Классификация появится после генерации ответа.
+                    </div>
+                </div>
+
+                <h3>Извлечённая информация</h3>
+                <div id="extractedInfoBlock">
+                    <div class="placeholder">
+                        Ключевые факты будут показаны после анализа письма.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Сгенерированный ответ</h2>
+                <textarea
+                    id="answerText"
+                    class="textarea answer-textarea"
+                    rows="10"
+                    placeholder="Здесь появится сгенерированный черновик ответа…"
+                ></textarea>
+
+                <div class="actions-row">
+                    <button type="button" id="copyBtn">
+                        Копировать
+                    </button>
+                    <button type="button" id="sendBtn">
+                        Отправить (эмуляция)
+                    </button>
+                    <button type="button" id="regenerateBtn">
+                        Перегенерировать
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div id="statusBar" class="status status-info">
+            Готов к работе ♥
+        </div>
+        <div class="tech-note">
+            Демонстрационный UI
+        </div>
+    </footer>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
